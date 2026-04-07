@@ -27,6 +27,8 @@ rofi -show SCRIPT -modi "SCRIPT:~/rofi-scripts/script.sh"
 import os
 import sys
 
+from .text import sanitize_rofi
+
 
 class RofiDialog:
     """Simple class to build the input for rofi to create a simple
@@ -70,7 +72,7 @@ class RofiDialog:
 
     def set_option(self, name, value):
         """Set an rofi option as described in the manpage rofi-script(5)"""
-        self.out(f"\0{name}\x1f{value}\n")
+        self.out(f"\0{sanitize_rofi(name)}\x1f{sanitize_rofi(value)}\n")
 
     def set_message(self, text):
         """Set the text for rofi's message field"""
@@ -101,10 +103,11 @@ class RofiDialog:
 
     def add_row_dict(self, text, options):
         """Same functionality as add_row, but for intern usage"""
-        option_str = "\x1f".join(f"{k}\x1f{v}"
+        option_str = "\x1f".join(f"{sanitize_rofi(k)}\x1f{sanitize_rofi(v)}"
                                  for k, v
                                  in options.items()
                                  if v is not None)
+        text = sanitize_rofi(text)
         if option_str:
             self.out(f"{text}\0{option_str}\n")
         else:

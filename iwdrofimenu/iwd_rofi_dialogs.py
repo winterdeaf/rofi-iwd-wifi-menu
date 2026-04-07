@@ -6,6 +6,7 @@ from settings import ICONS, ROFI_THEME_FILE, SHOW_SEPARATOR, SIGNAL_QUALITY_TEXT
 
 from .actions import encode_action
 from .rofidialog import RofiDialog, RofiSimpleDialog
+from .text import escape_markup, sanitize_rofi
 
 
 class RofiBasicDialog(RofiDialog):
@@ -38,7 +39,7 @@ class RofiPasswordInput(RofiSimpleDialog):
         if prompt is None:
             prompt = TEMPLATES["prompt_pass"]
         if message is None:
-            message = f"Please enter the passphrase for {ssid} and press enter."
+            message = f"Please enter the passphrase for {sanitize_rofi(ssid)} and press enter."
         super().__init__(
             prompt,
             message=message,
@@ -101,7 +102,7 @@ class RofiShowActiveConnection(RofiIWDDialog):
         if details:
             for name, value in details:
                 self.add_row(
-                    self.row_template.substitute(property=name, value=value),
+                    self.row_template.substitute(property=escape_markup(name), value=escape_markup(value)),
                     nonselectable="true",
                 )
         else:
@@ -185,7 +186,9 @@ class RofiNetworkList(RofiIWDDialog):
         cmd = encode_action("connect", network_path=nw["path"], ssid=nw["ssid"])
         meta = TEMPLATES["meta_connect"]
         nw = dict(nw)
-        nw["quality_str"] = SIGNAL_QUALITY_TEXT[nw["quality"]]
+        nw["quality_str"] = escape_markup(SIGNAL_QUALITY_TEXT[nw["quality"]])
+        nw["ssid"] = escape_markup(nw["ssid"])
+        nw["security"] = escape_markup(nw["security"])
 
         if nw["connected"]:
             text = self.row_template_active.substitute(nw)

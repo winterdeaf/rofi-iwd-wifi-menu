@@ -15,6 +15,7 @@ from .iwd_rofi_dialogs import (
     RofiPasswordInput,
     RofiShowActiveConnection,
 )
+from .text import sanitize_rofi
 
 
 class Main:
@@ -126,7 +127,7 @@ class Main:
             self.message = "No connected network"
             return
 
-        msg = Template(TEMPLATES["msg_really_discard"]).substitute(ssid=ssid)
+        msg = Template(TEMPLATES["msg_really_discard"]).substitute(ssid=sanitize_rofi(ssid))
         RofiConfirmDialog(
             TEMPLATES["prompt_confirm"],
             message=msg,
@@ -167,7 +168,7 @@ class Main:
         if result == IWD.ConnectionResult.SUCCESS:
             self.data = ""
         elif result in {IWD.ConnectionResult.NOT_SUCCESSFUL, IWD.ConnectionResult.NEED_PASSPHRASE}:
-            msg = Template(TEMPLATES["msg_connection_not_successful_after_pass"]).substitute(ssid=ssid)
+            msg = Template(TEMPLATES["msg_connection_not_successful_after_pass"]).substitute(ssid=sanitize_rofi(ssid))
             RofiPasswordInput(ssid, network_path, message=msg)
             sys.exit(0)
 
@@ -190,4 +191,4 @@ class Main:
             template_str = TEMPLATES["msg_connection_timeout"]
         else:
             template_str = TEMPLATES["msg_connection_not_successful"]
-        self.message = Template(template_str).substitute(ssid=ssid)
+        self.message = Template(template_str).substitute(ssid=sanitize_rofi(ssid))
