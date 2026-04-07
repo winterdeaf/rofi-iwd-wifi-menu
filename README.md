@@ -2,14 +2,15 @@
 Minimalistic WiFi network chooser for *[iwd](https://iwd.wiki.kernel.org/)* with a
 *[rofi](https://github.com/davatorium/rofi)* frontend.
 
+This is a fork of [defname/rofi-iwd-wifi-menu](https://github.com/defname/rofi-iwd-wifi-menu). The original project relied on parsing `iwctl` output, which could be buggy, especially for network names containing spaces or other special characters. This fork uses iwd's D-Bus interface directly and should therefore be more robust.
+
 ## Overview
 A simple network chooser written in Python 3 and mainly for fun and my own use.
-It is a script for *rofi* and works as a
-frontend for *iwd*/*iwctl*. The functionality is very basic. It is only possible
-to list networks, connect/disconnect, show details of the active connection,
-and remove the active connection from the known networks.
+It is a script for *rofi* and works as a frontend for *iwd*. The current implementation talks directly to iwd over D-Bus instead of parsing `iwctl` output.
 
-*iwdrofimenu* can run in two slightly different modes. A normal mode where it is possible to manage the connections, and an other mode optimized for *rofi*'s combi mode. In this less interactive mode only known (available) networks and less options are listed.
+The functionality is intentionally basic. It can list networks, connect/disconnect, show details of the active connection, and remove the active connection from the known networks.
+
+*iwdrofimenu* can run in two slightly different modes. A normal mode where it is possible to manage the connections, and another mode optimized for *rofi*'s combi mode. In this less interactive mode only known or open networks and fewer options are listed.
 
 *iwd* (iNet Wireless Daemon) is a small, standalone
 wireless network daemon that seems to be much more resource-friendly than
@@ -42,11 +43,9 @@ program.
 </table>
 
 ## Dependencies
-As you probably guessed, you need a working installation of *iwd* (make sure your user has the needed permissions to run `iwctl`!),
-*rofi* and *Python 3* to use this script. All of these can be obtained from the official repositories of your favorite
-Linux distribution. You also need to install the Python library [pexpect](https://github.com/pexpect/pexpect) which you should also find with your distributions packet manager (e.g. in *Arch* it's `python-pexpect`). Otherwise you can install it with Python's package manager by running
+As you probably guessed, you need a working installation of *iwd*, *rofi* and *Python 3* to use this script. Your user also needs permission to talk to the iwd D-Bus service. All of these can be obtained from the official repositories of your favorite Linux distribution. You also need to install the Python library [dbus-next](https://github.com/altdesktop/python-dbus-next) which you may also find in your distribution's package manager. Otherwise you can install it with Python's package manager by running
 ```
-pip install pexpect
+pip install dbus-next
 ```
 However, if you currently do not use iwd, you may not want to switch your wifi daemon as it may cause issues with integrated network buttons and other features in your Linux distribution's desktop environment.
 
@@ -132,7 +131,7 @@ a lot of great themes are out there (for example [those](https://github.com/adi1
 
 Note that *iwdrofimenu* marks the list elements for active connections as `active` and for known connections as `urgent`, so they can be styled within the rofi configuration easily.
 
-Still, there are some customizations that can be made through a configuration file. You can overwrite *rofi* settings with a custom theme for the script, change every single string displayed, and change the icons.
+Still, there are some customizations that can be made through a configuration file. You can overwrite *rofi* settings with a custom theme for the script, change every displayed string, and change the icons.
 
 ### Configuration Files
 The script will look for configurations in the following files in the given order.
@@ -160,8 +159,7 @@ defaults will be overwritten by this file).
 
 ### Basic Configuration
 
-The configuration file is in the *INI* fileformat, consisting of the sections
-`general`, `templates` and `icons`. Here I will only discuss the parts that you are most likely to want to change.
+The configuration file is in the *INI* file format, consisting of the sections `general`, `templates` and `icons`. Here I will only discuss the parts that you are most likely to want to change.
 
 #### WiFI Device
 You can specify the wifi device to use with the `device` option in the `general` section. For more information how to figure out the name of your wifi device look in the [Installation](#installation) section.
@@ -180,14 +178,16 @@ loaded seperatly from the global *rofi* configuration.
 Per default a separator line is displayed between the control-elements and the network list entries. Set `show_separator` to `False` to deactivate it. (You can also customize the separator with a [Template](#templates))
 
 #### Templates
-You can change every string value output by *iwdwifimenu* through string templates in the `templates` section of the configuration file. Most of them are simple strings, but in some cases, you can use variables (starting with `$`) which will be replaced. In the default configuration (which you can obtain by calling `iwdrofimenu --config`) all possible variables are used, so you can explore and play around by yourself (most of it should be pretty obvious).
-In the templates it is possible to use [Pango Markup](https://docs.gtk.org/Pango/pango_markup.html) for changing the font-color, weight, etc differently from the *rofi* theme.
+You can change every string value output by *iwdrofimenu* through string templates in the `templates` section of the configuration file. Most of them are simple strings, but in some cases you can use variables (starting with `$`) which will be replaced. In the default configuration (which you can obtain by calling `iwdrofimenu --config`) all possible variables are used, so you can explore and play around by yourself.
+In the templates it is possible to use [Pango Markup](https://docs.gtk.org/Pango/pango_markup.html) for changing the font color, weight, etc. differently from the *rofi* theme.
 
-## Bugs
-Please be aware that this script may contain bugs that I am currently unaware of, as I have no possibilities to thoroughly test it. If you encounter any problems, feel free to open an issue so that I can attempt to resolve them.
+## Notes
+This project was recently rewritten to use iwd's D-Bus API directly. If you encounter any problems, feel free to open an issue with details about your iwd version and the failing network type so that I can attempt to resolve them.
 
 ## Limitations
-It's not possibly to connect to hidden networks so far. (I'm even not sure if they show up in the list if they are already known). I never needed this feature and also have no easy possibility to test it. If it's something you really miss, let me know, maybe I find some time and add it.
+- Hidden-network support is not implemented in the rofi UI yet.
+- The current UI only handles open and PSK networks well. Enterprise/802.1x and other credential flows are not implemented yet.
+- The old rfkill toggle feature has been removed in the D-Bus rewrite.
 
 ## Similar projects
 Although there are a variety of alternatives that utilize *NetworkManager*, I could find

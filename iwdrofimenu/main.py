@@ -1,253 +1,193 @@
-# Copyright, 2023, Bodo Akdeniz
-#
-# This file is part of iwdrofimenu.
-#
-# iwdrofimenu is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# iwdrofimenu is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with iwdrofimenu.  If not, see <http://www.gnu.org/licenses/>.
+"""Main file of the script."""
 
-"""Main file of the script. Handle userinput and create apropriate dialogs.
-"""
+import logging
 import os
 import sys
 from string import Template
-import subprocess
-import logging
-from settings import TEMPLATES, RFKILL_CMD
-from .iwd_rofi_dialogs import RofiNetworkList, RofiShowActiveConnection,\
-                             RofiPasswordInput, RofiConfirmDialog,\
-                             RofiNoWifiDialog
-from .iwdwrapper import IWD
+
+from settings import TEMPLATES
+
+from .actions import decode_action, encode_action
+from .iwd_dbus import IWD
+from .iwd_rofi_dialogs import (
+    RofiConfirmDialog,
+    RofiNetworkList,
+    RofiPasswordInput,
+    RofiShowActiveConnection,
+)
 
 
 class Main:
-    """Main class bringing everything together.
+    """Main class bringing everything together."""
 
-    Handle userinput (recieved as environment variables) and call the suitable
-    method to take action.
-    """
     def __init__(self, device="wlan0", args=None):
-        """Initialize objbect and do everything.
-
-        No other method should be called to use this class.
-        """
         self.args = args
+        self.arg = self.args.arg
+        self.combi_mode = self.args.combi_mode
         self.message = ""
         self.iwd = IWD(device)
         self.iwd.scan()
 
-        self.arg = self.args.arg
-        self.combi_mode = self.args.combi_mode
-        # self.evaluate_argv()  # set argv and combi_mode
         self.retv = os.environ.get("ROFI_RETV")
         self.info = os.environ.get("ROFI_INFO")
         self.data = os.environ.get("ROFI_DATA")
 
+        self.data_action = decode_action(self.data)
+        self.info_action = decode_action(self.info)
+
         commands = {
-            "cmd#iwd#scan": self.scan,
-            "cmd#iwd#showactiveconnection": self.show_active_connection,
-            "cmd#iwd#disconnect": self.disconnect,
-            "cmd#iwd#connect": self.connect,
-            "cmd#iwd#forget": self.forget,
-            "cmd#blockwifi": self.block_wifi,
-            "cmd#unblockwifi": self.unblock_wifi,
+            "scan": self.scan,
+            "refresh": self.refresh,
+            "show_active_connection": self.show_active_connection,
+            "disconnect": self.disconnect,
+            "connect": self.connect,
+            "connect_with_passphrase": self.connect_with_passphrase,
+            "forget_current": self.forget,
+            "abort": self.abort,
         }
 
-        logging.info("ARG: %s, RETV: %s, DATA: %s, INFO: %s",
-                     self.arg, self.retv, self.data, self.info)
+        logging.info(
+            "ARG=%s RETV=%s DATA=%s INFO=%s DATA_ACTION=%s INFO_ACTION=%s",
+            self.arg,
+            self.retv,
+            self.data,
+            self.info,
+            self.data_action,
+            self.info_action,
+        )
 
-        # check self.data and self.info for commands and apply the associated
-        # actions exit programm if apropriate dialog was started
         self.apply_actions(commands)
 
-        # check if wifi is disabled
-        if self.wifi_is_blocked():
-            RofiNoWifiDialog(TEMPLATES["prompt_ssid"])
-            sys.exit(0)
-
-        # default dialog
-        RofiNetworkList(self.iwd,
-                        message=self.message,
-                        data=self.data,
-                        combi_mode=self.combi_mode
-                        )
-
-    def evaluate_argv(self):
-        """Evaluate sys.argv and set arg and combi_mode
-
-        sys.argv might be empty, contain an argument passed by rofi or
-        call parameter iwdrofimenu (e.g "--combi-mode").
-        Figure out whats the case and make sure in self.arg is the parameter
-        rofi passed to this script and combi_mode is set correctly.
-        """
-        argn = len(sys.argv)
-        if argn >= 2:
-            if sys.argv[1] == "--combi-mode":
-                self.combi_mode = True
-                if argn > 2:
-                    self.arg = sys.argv[2]
-            else:
-                self.arg = sys.argv[1]
+        RofiNetworkList(
+            self.iwd,
+            message=self.message,
+            data=self.data,
+            combi_mode=self.combi_mode,
+        )
 
     def exit_if_combi_mode(self):
         if self.combi_mode:
             sys.exit(0)
 
     def apply_actions(self, commands):
-        """Main logic of the program.
-
-        Choose the correct action depending on the user's input
-        """
         done = False
-        # first check if a command is found in ROFI_DATA
-        # this has priority over ROFI_INFO and is used for the case the
-        # user write custom input (for example a password), which is
-        # passed in sys.argv[1] and not in ROFI_INFO like when a list
-        # entry is selected
-        # ROFI_DATA needs to be cleared after usage, otherwise it is
-        # passed to every following iteration (other than ROFI_INFO)
-        if self.data:
-            for prefix, action in commands.items():
-                if self.data.startswith(prefix):
-                    action(self.data[len(prefix):])
-                    done = True
+        if self.data_action:
+            action = self.data_action.get("action")
+            handler = commands.get(action)
+            if handler is not None:
+                handler(self.data_action)
+                done = True
 
-        # if no command was triggered through ROFI_DATA check ROFI_INFO
-        if done or not self.info:
+        if done or not self.info_action:
             return
-        for prefix, action in commands.items():
-            if self.info.startswith(prefix):
-                action(self.info[len(prefix):])
 
-    def wifi_is_blocked(self):
-        """Check if wifi is disabled.
+        action = self.info_action.get("action")
+        handler = commands.get(action)
+        if handler is not None:
+            handler(self.info_action)
 
-        Returns:
-            true if wifi is disabled, false if it's enabled.
-        """
-        result = subprocess.run([RFKILL_CMD, "-n", "-r"],
-                                capture_output=True,
-                                text=True,
-                                check=True,  # throw an exception on errors
-                                env={"LANGUAGE": "en"}
-                                )
-        adapter = self.iwd.adapter()
-        if adapter is None:
-            raise IOError(f"Something went wrong while querying {self.iwd.device}. "
-                        f"Try to run 'iwctl device {self.iwd.device} show' manually to see what's going on.")
-        for line in result.stdout.split("\n"):
-            if line.find(adapter) != -1:
-                if line.find(" blocked") != -1:
-                    return True
-                return False
-        raise IOError(f"{self.iwd.device} not found in rfkill list.")
+    def _error_message(self, fallback: str) -> str:
+        return self.iwd.last_error or fallback
 
-    def block_wifi(self, dummy):
-        """Deactivate wifi entirely with rfkill"""
-        result = subprocess.run(["rfkill", "block", "wlan"],
-                                capture_output=True,
-                                text=True,
-                                check=False)
-        if result.returncode != 0:
-            self.message = "An error occured: " + result.stderr
+    def refresh(self, action):
+        del action
+        return
 
-        self.exit_if_combi_mode()
+    def abort(self, action):
+        del action
+        self.data = ""
 
-    def unblock_wifi(self, dummy):
-        """Activate wifi with rfkill"""
-        result = subprocess.run(["rfkill", "unblock", "wlan"],
-                                capture_output=True,
-                                text=True,
-                                check=False)
-        if result.returncode != 0:
-            self.message = "An error occured: " + result.stderr
+    def scan(self, action):
+        del action
+        if self.iwd.scan():
+            self.message = TEMPLATES["msg_scanning"]
+        else:
+            self.message = self._error_message("Scan failed")
 
-        self.exit_if_combi_mode()
-
-    def scan(self, dummy):
-        """Scan for wifi networks"""
-        self.iwd.scan()
-        self.message = TEMPLATES["msg_scanning"]
-
-    def show_active_connection(self, dummy):
-        """Show the dialog for connection details"""
+    def show_active_connection(self, action):
+        del action
         RofiShowActiveConnection(self.iwd, data="")
         sys.exit(0)
 
-    def disconnect(self, dummy):
-        """Disconnect and update connection state."""
+    def disconnect(self, action):
+        del action
         self.iwd.disconnect()
         self.iwd.update_connection_state()
-
         self.exit_if_combi_mode()
 
-    def forget(self, arg):
-        """Remove the active network from known networks.
+    def forget(self, action):
+        if action.get("confirm"):
+            if not self.iwd.forget():
+                self.message = self._error_message("Could not forget network")
+            return
 
-        Only do it if the action was confirmed in the confirmation dialog.
-        Otherwise Show the confirmation dialog.
-        """
-        if arg == "#confirm":
-            self.iwd.forget(self.iwd.ssid())
-            self.iwd.update_connection_state()
-        else:
-            msg = Template(TEMPLATES["msg_really_discard"])\
-                    .substitute(ssid=self.iwd.ssid())
-            RofiConfirmDialog(TEMPLATES["prompt_confirm"],
-                              message=msg,
-                              data="",
-                              confirm_caption=TEMPLATES["confirm_discard"],
-                              confirm_info="cmd#iwd#forget#confirm",
-                              abort_caption=TEMPLATES["back"],
-                              abort_info="cmd#iwd#showactiveconnection"
-                              )
+        ssid = self.iwd.ssid()
+        if not ssid:
+            self.message = "No connected network"
+            return
+
+        msg = Template(TEMPLATES["msg_really_discard"]).substitute(ssid=ssid)
+        RofiConfirmDialog(
+            TEMPLATES["prompt_confirm"],
+            message=msg,
+            data="",
+            confirm_caption=TEMPLATES["confirm_discard"],
+            confirm_info=encode_action("forget_current", confirm=True),
+            abort_caption=TEMPLATES["back"],
+            abort_info=encode_action("show_active_connection"),
+        )
+        sys.exit(0)
+
+    def connect(self, action):
+        network_path = action.get("network_path")
+        network = self.iwd.get_network(network_path)
+        if not network:
+            self.message = "Selected network is no longer available"
+            return
+
+        if network["security"] == "psk" and not network["known"]:
+            RofiPasswordInput(network["ssid"], network_path)
             sys.exit(0)
 
-    def connect(self, ssid):
-        """Connect to a wifi network.
+        result = self.iwd.connect(network_path)
+        self.iwd.update_connection_state()
+        self._handle_connection_result(result, network["ssid"], network_path)
 
-        If a password is needed show a login dialog.
-        """
-        if self.data:
-            # in this case this method was triggered because
-            # ROFI_DATA == "cmd#iwd#connect#{ssid}" and the password is passed
-            # by rofi to the script as argument in sys.argv[1]
-            if self.info == "cmd#abort":
-                self.data = ""
-                return
-            result = self.iwd.connect(ssid, self.arg)
-            if result == IWD.ConnectionResult.SUCCESS:
-                self.data = ""  # reset data to get back to main dialog
-            else:
-                msg = Template(
-                        TEMPLATES["msg_connection_not_successful_after_pass"])\
-                                .substitute(ssid=ssid)
-                RofiPasswordInput(ssid, message=msg)
-                sys.exit()
-        else:
-            result = self.iwd.connect(ssid)
+    def connect_with_passphrase(self, action):
+        network_path = action.get("network_path")
+        ssid = action.get("ssid") or "network"
 
+        if self.info_action and self.info_action.get("action") == "abort":
+            self.data = ""
+            return
+
+        result = self.iwd.connect(network_path, self.arg)
         self.iwd.update_connection_state()
 
+        if result == IWD.ConnectionResult.SUCCESS:
+            self.data = ""
+        elif result in {IWD.ConnectionResult.NOT_SUCCESSFUL, IWD.ConnectionResult.NEED_PASSPHRASE}:
+            msg = Template(TEMPLATES["msg_connection_not_successful_after_pass"]).substitute(ssid=ssid)
+            RofiPasswordInput(ssid, network_path, message=msg)
+            sys.exit(0)
+
+        self._handle_connection_result(result, ssid, network_path)
+
+    def _handle_connection_result(self, result, ssid, network_path):
         if result == IWD.ConnectionResult.NEED_PASSPHRASE:
-            RofiPasswordInput(ssid)
+            RofiPasswordInput(ssid, network_path)
             sys.exit(0)
 
         if result == IWD.ConnectionResult.SUCCESS:
             template_str = TEMPLATES["msg_connection_successful"]
             self.exit_if_combi_mode()
-        if result == IWD.ConnectionResult.NOT_SUCCESSFUL:
+        elif result == IWD.ConnectionResult.NOT_SUCCESSFUL:
+            if self.iwd.last_error_user_friendly and self.iwd.last_error:
+                self.message = self.iwd.last_error
+                return
             template_str = TEMPLATES["msg_connection_not_successful"]
-        if result == IWD.ConnectionResult.TIMEOUT:
+        elif result == IWD.ConnectionResult.TIMEOUT:
             template_str = TEMPLATES["msg_connection_timeout"]
+        else:
+            template_str = TEMPLATES["msg_connection_not_successful"]
         self.message = Template(template_str).substitute(ssid=ssid)
-

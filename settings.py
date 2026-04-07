@@ -38,7 +38,6 @@ defaults = {
         "img_subdir": "dark",
         "rofi_theme_file": root_dir + "res/style.rasi",
         "show_separator": True,
-        "rfkill_cmd": "rfkill",
         },
     "templates": {
         "signal_quality_str_1": "█░░░░",
@@ -61,17 +60,12 @@ defaults = {
         "confirm_discard": "Yes, discard",
         "disconnect": "Disconnect",
         "refresh": "Refresh",
-        "enable_wifi": "Activate WiFi",
-        "disable_wifi": "Disable WiFi",
         "msg_scanning": "Scanning... Click refresh to update the list",
         "msg_really_discard": "Do you really want to remove $ssid from known networks?",
         "msg_connection_not_successful": "Could not connect to $ssid",
         "msg_connection_not_successful_after_pass": "Could not connect to $ssid, maybe the entered passphrase is not correct.",
         "msg_connection_timeout": "Connection attempt to $ssid timed out",
         "msg_connection_successful": "Connection to $ssid established",
-        "msg_wifi_disabled": "WiFi is currently disabled. Do you want to activate it?",
-        "meta_disable": "disable block wifi wlan",
-        "meta_enable": "enable unblock wifi wlan",
         "meta_connect": "connect wifi wlan",
         "meta_disconnect": "disconnect wifi wlan",
         "meta_scan": "scan update wifi wlan",
@@ -85,8 +79,6 @@ defaults = {
         "trash":        "trash.png",
         "scan":         "search.png",
         "refresh":      "refresh.png",
-        "enable":       "network-wireless-signal-excellent.png",
-        "disable":      "network-wireless-disabled.png",
         "wifi-signal-1":    "network-wireless-signal-weak.png",
         "wifi-signal-2":    "network-wireless-signal-weak.png",
         "wifi-signal-3":    "network-wireless-signal-ok.png",
@@ -117,7 +109,6 @@ config.read(config_files)
 DEVICE = config["general"]["device"]
 ROFI_THEME_FILE = config["general"]["rofi_theme_file"]
 SHOW_SEPARATOR = config["general"].getboolean("show_separator")
-RFKILL_CMD = config["general"]["rfkill_cmd"]
 TEMPLATES = config["templates"]
 SIGNAL_QUALITY_TEXT = {i: config["templates"][f"signal_quality_str_{i}"]
                        for i in range(1, 6)

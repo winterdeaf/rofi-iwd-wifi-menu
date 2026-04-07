@@ -13,4 +13,10 @@ If you specified a different directory for installation, you also have to
 specify it for the uninstallation with
   PREFIX=<dir> make uninstall
 
+Runtime dependencies:
+  - Python 3
+  - rofi
+  - iwd
+  - python module: dbus-next
+
 Look at https://github.com/defname/rofi-iwd-wifi-menu for more information.
