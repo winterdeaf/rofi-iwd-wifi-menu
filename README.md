@@ -53,7 +53,7 @@ However, if you currently do not use iwd, you may not want to switch your wifi d
 ### To try it out
 If you want to try it out, get your copy and run it as *rofi* script
 ```sh
-git clone https://github.com/defname/rofi-iwd-wifi-menu
+git clone https://github.com/winterdeaf/rofi-iwd-wifi-menu
 cd rofi-iwd-wifi-menu
 rofi -show wifi -modi "wifi:./iwdrofimenu.py"
 ```
@@ -195,4 +195,5 @@ only one that uses *iwd* (and this one I couldn't get running...).
 * *[rofi-wifi-menu](https://github.com/zbaylin/rofi-wifi-menu)*: A rofi wifi menu that uses *networkmanager*
 in the background
 * *[rofi-iwd-menu](https://github.com/TimTinkers/rofi-iwd-menu)*: Another one existing for *iwd*, but I
-couldn't get it to work, that's why I started this little project.
+couldn't get it to work, that's why I started this little project
+* *[defname/rofi-iwd-wifi-menu](https://github.com/defname/rofi-iwd-wifi-menu)*: The original project, but I could not connect to networks with special characters in the SSID, hence this fork.
