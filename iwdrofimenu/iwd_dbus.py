@@ -13,6 +13,7 @@ from typing import Any
 
 from dbus_next import BusType, DBusError, Variant
 from dbus_next.aio import MessageBus
+from dbus_next.errors import InterfaceNotFoundError
 from dbus_next.service import ServiceInterface, method
 
 IWD_SERVICE = "net.connman.iwd"
@@ -192,8 +193,19 @@ class IWD:
         return proxy
 
     async def _get_interface(self, path: str, interface: str):
+        cached = path in self._proxy_cache
         proxy = await self._get_proxy_object(path)
-        return proxy.get_interface(interface)
+        try:
+            return proxy.get_interface(interface)
+        except InterfaceNotFoundError:
+            if not cached:
+                raise
+            # Optional iwd interfaces can appear/disappear as the device state
+            # changes. Retry once with fresh introspection when a cached proxy
+            # no longer matches the current object layout.
+            self._proxy_cache.pop(path, None)
+            proxy = await self._get_proxy_object(path)
+            return proxy.get_interface(interface)
 
     async def _get_managed_objects(self) -> dict[str, dict[str, dict[str, Any]]]:
         object_manager = await self._get_interface(ROOT_PATH, OBJECT_MANAGER)
@@ -393,10 +405,10 @@ class IWD:
             return {}
         if STATION_DIAGNOSTIC_INTERFACE not in self._interfaces_for(self._device_path):
             return {}
-        diagnostic = await self._get_interface(self._device_path, STATION_DIAGNOSTIC_INTERFACE)
         try:
+            diagnostic = await self._get_interface(self._device_path, STATION_DIAGNOSTIC_INTERFACE)
             return self._unwrap(await diagnostic.call_get_diagnostics())
-        except DBusError:
+        except (DBusError, InterfaceNotFoundError):
             return {}
 
     def update_connection_state(self, refresh: bool = True):
