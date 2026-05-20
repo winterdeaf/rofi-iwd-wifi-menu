@@ -26,8 +26,6 @@ class Main:
         self.arg = self.args.arg
         self.combi_mode = self.args.combi_mode
         self.message = ""
-        self.iwd = IWD(device)
-        self.iwd.scan()
 
         self.retv = os.environ.get("ROFI_RETV")
         self.info = os.environ.get("ROFI_INFO")
@@ -35,6 +33,10 @@ class Main:
 
         self.data_action = decode_action(self.data)
         self.info_action = decode_action(self.info)
+
+        self.iwd = IWD(device)
+        if self._should_auto_scan():
+            self.iwd.scan()
 
         commands = {
             "scan": self.scan,
@@ -69,6 +71,9 @@ class Main:
     def exit_if_combi_mode(self):
         if self.combi_mode:
             sys.exit(0)
+
+    def _should_auto_scan(self):
+        return self.data_action is None and self.info_action is None
 
     def apply_actions(self, commands):
         done = False

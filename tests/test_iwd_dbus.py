@@ -1,4 +1,5 @@
 import asyncio
+import types
 import unittest
 from unittest.mock import AsyncMock
 
@@ -32,6 +33,30 @@ class _FakeBus:
 
 
 class IWDDbusTests(unittest.TestCase):
+    def test_connect_honors_timeout(self):
+        iwd = IWD.__new__(IWD)
+        iwd._closed = False
+        iwd._loop = asyncio.new_event_loop()
+        iwd._bus = None
+        iwd.last_error = None
+        iwd.last_error_user_friendly = False
+        iwd.get_network = lambda path: {"path": path, "security": "open", "known": True}
+        iwd.update_connection_state = lambda refresh=True: None
+
+        async def slow_connect(self, network_path, passphrase):
+            del network_path, passphrase
+            await asyncio.sleep(0.05)
+
+        iwd._connect_network = types.MethodType(slow_connect, iwd)
+
+        try:
+            result = iwd.connect("/dev/path", timeout=0.01)
+        finally:
+            iwd.close()
+
+        self.assertEqual(result, IWD.ConnectionResult.TIMEOUT)
+        self.assertEqual(iwd.last_error, "Connection attempt timed out")
+
     def test_get_interface_reintrospects_when_cached_proxy_is_stale(self):
         cached_proxy = _FakeProxy({})
         fresh_interface = object()

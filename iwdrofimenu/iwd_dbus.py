@@ -570,7 +570,6 @@ class IWD:
                 await self._unregister_agent(agent_path)
 
     def connect(self, network_path: str, passphrase: str | None = None, timeout: int = 30):
-        del timeout
         network = self.get_network(network_path)
         if not network:
             self._set_error("Network no longer exists", user_friendly=True)
@@ -587,10 +586,16 @@ class IWD:
             return IWD.ConnectionResult.NOT_SUCCESSFUL
 
         try:
-            self._run(self._connect_network(network_path, passphrase))
+            coroutine = self._connect_network(network_path, passphrase)
+            if timeout and timeout > 0:
+                coroutine = asyncio.wait_for(coroutine, timeout=timeout)
+            self._run(coroutine)
             self._set_error(None)
             self.update_connection_state()
             return IWD.ConnectionResult.SUCCESS
+        except asyncio.TimeoutError:
+            self._set_error("Connection attempt timed out")
+            return IWD.ConnectionResult.TIMEOUT
         except DBusError as error:
             unsupported = self._unsupported_credentials_message(security)
             if error.type.endswith(".NoAgent") and security == "psk":
