@@ -64,6 +64,7 @@ defaults = {
         "msg_really_discard": "Do you really want to remove $ssid from known networks?",
         "msg_connection_not_successful": "Could not connect to $ssid",
         "msg_connection_not_successful_after_pass": "Could not connect to $ssid, maybe the entered passphrase is not correct.",
+        "msg_connection_in_progress": "Connecting to $ssid...",
         "msg_connection_timeout": "Connection attempt to $ssid timed out",
         "msg_connection_successful": "Connection to $ssid established",
         "meta_connect": "connect wifi wlan",

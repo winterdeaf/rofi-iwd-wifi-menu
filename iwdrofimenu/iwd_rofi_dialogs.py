@@ -155,6 +155,8 @@ class RofiNetworkList(RofiIWDDialog):
             networks = [nw for nw in networks if nw["known"] or nw["security"] == "open"]
 
         self.networks = networks
+        self.connection_state = str(self.iwd.update_connection_state(refresh=False).get("State", "")).lower()
+        self.connected_network_path = self.iwd.connected_network_path()
 
         offset = 3 if (SHOW_SEPARATOR and TEMPLATES["separator"] and not self.combi_mode) else 2
         if self.combi_mode:
@@ -164,15 +166,19 @@ class RofiNetworkList(RofiIWDDialog):
 
     def mark_known_or_active_networks(self, offset):
         active = None
-        known = []
+        urgent = []
         for idx, nw in enumerate(self.networks):
-            if nw["connected"]:
-                active = idx + offset
+            item = idx + offset
+            is_current_network = nw["path"] == self.connected_network_path
+            if nw["connected"] and self.connection_state == "connecting" and is_current_network:
+                urgent.append(item)
+            elif nw["connected"]:
+                active = item
             elif nw["known"] and not self.combi_mode:
-                known.append(idx + offset)
+                urgent.append(item)
         if active is not None:
             self.set_option("active", f"{active}")
-        self.set_option("urgent", ",".join(map(str, known)))
+        self.set_option("urgent", ",".join(map(str, urgent)))
 
     def add_networks_to_dialog(self):
         for nw in self.networks:

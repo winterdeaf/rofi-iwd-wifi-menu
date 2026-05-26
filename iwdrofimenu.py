@@ -19,9 +19,11 @@
 
 import sys
 import logging
+import os
 import argparse
 from settings import DEVICE, print_full_config
-import iwdrofimenu
+from iwdrofimenu import Main
+from iwdrofimenu.main import WORKER_PASSPHRASE_ENV, run_connect_worker
 
 DESCRIPTION = """A minimalistic wifi chooser for iwd using rofi.
 It is meant to run as a rofi script and not as a standalone version. So it
@@ -71,6 +73,13 @@ if __name__ == "__main__":
                            optimized for rofi's combi mode)")
     argparser.add_argument("--config", action="store_true",
                            help="dump default configuration file")
+    argparser.add_argument("--connect-worker", action="store_true",
+                           help=argparse.SUPPRESS)
+    argparser.add_argument("--worker-network-path",
+                           help=argparse.SUPPRESS)
+    argparser.add_argument("--worker-ssid",
+                           default="network",
+                           help=argparse.SUPPRESS)
     args = argparser.parse_args()
 
 #    if args.help:
@@ -81,8 +90,13 @@ if __name__ == "__main__":
         sys.exit(0)
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
+    if args.connect_worker:
+        if not args.worker_network_path:
+            argparser.error("--worker-network-path is required with --connect-worker")
+        passphrase = os.environ.pop(WORKER_PASSPHRASE_ENV, None)
+        sys.exit(run_connect_worker(DEVICE, args.worker_network_path, args.worker_ssid, passphrase))
     try:
-        iwdrofimenu.Main(DEVICE, args)
+        Main(DEVICE, args)
     except IOError as error:
         print("An error occured:")
         print(error)
